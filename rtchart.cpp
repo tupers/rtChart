@@ -129,8 +129,6 @@ QChartView* RTChart::createChart()
 QPushButton *RTChart::createButton(QString name)
 {
     QPushButton* button = new QPushButton(name,this);
-    button->setStyleSheet("color:white");
-
     return button;
 }
 
@@ -188,10 +186,11 @@ void RTChart::updateData(float indata)
     if(data.count()>=storedNum)
         data.removeFirst();
     data.append(indata);
-    if(m_bIsDisplay)
-        infoLabel->setText(fpsCnt+" "+val);
-    else
-        infoLabel->setText(fpsCnt+"\n"+val);
+    infoLabel->setText(fpsCnt+" "+val);
+//    if(m_bIsDisplay)
+//        infoLabel->setText(fpsCnt+" "+val);
+//    else
+//        infoLabel->setText(fpsCnt+"\n"+val);
     curFrequency++;
     if(curFrequency>=frequency)
     {
@@ -213,7 +212,7 @@ void RTChart::displayCtrl()
         QFont font = infoLabel->font();
         font.setPointSize(15);
         infoLabel->setFont(font);
-
+        chartView->setVisible(false);
     }
     else
     {
@@ -221,6 +220,7 @@ void RTChart::displayCtrl()
         QFont font = infoLabel->font();
         font.setPointSize(9);
         infoLabel->setFont(font);
+        chartView->setVisible(true);
     }
 
     setDisplay(!isDisplay());
