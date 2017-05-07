@@ -2,38 +2,65 @@
 #define RTCHART_H
 
 #include <QObject>
+#include <QWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QPushButton>
 #include <QVector>
 #include <QPoint>
 #include <QtCharts>
 #include <QList>
+#include <QStackedLayout>
+#include <QElapsedTimer>
+#include <QDebug>
 
-#define DISPLAY_NUM 100
-#define STORED_NUM  500
+#define DISPLAY_NUM         100
+#define STORED_NUM          500
 #define DEFAULT_FREQUENCY   1
 
-class RTChart : public QObject
+class RTChart : public QWidget
 {
     Q_OBJECT
 public:
-    explicit RTChart(QObject *parent = 0);
-    void setFrequency(int fq){frequency=fq;}
+    explicit RTChart(QString name,QWidget *parent = 0);
+    void setFrequency(int fq){frequency=fq>1?fq:1;}
     void updateDisplayData();
-    void initChart();
-    QChartView* getView(){return chartView;}
-    void setYRange(qreal min,qreal max){chart->axisY()->setRange(min,max);}
+    void setDataRange(qreal min,qreal max);
+    void setDisplay(bool opt){m_bIsDisplay=opt;}
+    bool isDisplay(){return m_bIsDisplay;}
+
 signals:
 
 public slots:
     void updateData(float indata);
+    void displayCtrl();
+protected:
+    QChartView* createChart();
+    QPushButton* createButton(QString name="");
+    QLabel* createLabel(QString name="");
 private:
+    QVBoxLayout* mainLayout;
+    QHBoxLayout* m_hCtrlLayout;
+    QStackedLayout* multiLayout;
+    QVBoxLayout* m_hSubLayout;
+    QWidget* m_hSubWidget;
+    QLabel* infoLabel;
+    QPushButton* saveButton;
+    QPushButton* displayButton;
+    QPushButton* m_hPauseButton;
+    QPushButton* m_hZoomInButton;
+    QPushButton* m_hZoomOutButton;
+    QChartView* chartView=NULL;
     QVector<float> data;
     QVector<QPointF> dataPoint;
+    QElapsedTimer m_fpsTimer;
+    qint64 m_lLastTime=0;
     int frequency=DEFAULT_FREQUENCY;
     int curFrequency=0;
-    QLineSeries* series=NULL;
-    QChart* chart=NULL;
-    QChartView* chartView=NULL;
-    int size=0;
+    bool m_bIsDisplay=true;
+    int displayNum=DISPLAY_NUM;
+    int storedNum=STORED_NUM;
+    QString m_ChartName;
 };
 
 #endif // RTCHART_H
