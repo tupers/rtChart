@@ -181,6 +181,7 @@ void RTChart::setDataRange(qreal min, qreal max)
  */
 void RTChart::updateData(float indata)
 {
+    emit updateFps();
 
     if(data.count()>=storedNum)
         data.removeFirst();
