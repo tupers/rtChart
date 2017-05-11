@@ -49,10 +49,10 @@ RTChart::RTChart(QString name,QWidget *parent) : QWidget(parent)
 
     m_hPauseButton = createButton("pause");
     connect(m_hPauseButton,&QPushButton::clicked,[=](){ if(m_hPauseButton->text()=="pause")
-                                                            m_hPauseButton->setText("continue");
-                                                        else
-                                                            m_hPauseButton->setText("pause");
-                                                        setDisplay(!isDisplay());});
+            m_hPauseButton->setText("continue");
+        else
+            m_hPauseButton->setText("pause");
+        setDisplay(!isDisplay());});
     m_hCtrlLayout->addWidget(m_hPauseButton);
     m_hCtrlLayout->setAlignment(m_hPauseButton,Qt::AlignRight);
 
@@ -76,6 +76,23 @@ RTChart::RTChart(QString name,QWidget *parent) : QWidget(parent)
     for(int i =0;i<displayNum;i++)
         dataPoint.append(QPointF(i,0));
 
+
+    //init fps counting
+    m_fpsString="fps: 0";
+    m_dataString="val: 0";
+
+    m_fpsThread = new QThread();
+    m_fpsCnt = new fpsCnt();
+    m_fpsCnt->moveToThread(m_fpsThread);
+    connect(this,&RTChart::updateFps,m_fpsCnt,&fpsCnt::counting);
+    connect(m_fpsCnt,&fpsCnt::fpsResult,this,[=](qreal fps){m_fpsString=QString("fps: %1").arg(fps);});
+    m_fpsThread->start();
+}
+
+RTChart::~RTChart()
+{
+    m_fpsThread->deleteLater();
+    m_fpsCnt->deleteLater();
 }
 
 /**
@@ -164,33 +181,17 @@ void RTChart::setDataRange(qreal min, qreal max)
  */
 void RTChart::updateData(float indata)
 {
-    if(!m_fpsTimer.isValid())
-        m_fpsTimer.start();
-
-    static QString fpsCnt="fps: 0";
-    static QString val="val: 0";
-
-    static int frameCount = 0;
-    qreal fps=0;
-    frameCount++;
-    int elapsed = m_fpsTimer.elapsed();
-    if(elapsed>1000)
-    {
-        m_fpsTimer.restart();
-        fps = qreal(0.1 * int(10000.0 * (qreal(frameCount) / qreal(elapsed))));
-        frameCount=0;
-        fpsCnt=QString("fps: %1").arg(fps);
-    }
-    val=QString("val: %1").arg(indata);
 
     if(data.count()>=storedNum)
         data.removeFirst();
     data.append(indata);
-    infoLabel->setText(fpsCnt+" "+val);
-//    if(m_bIsDisplay)
-//        infoLabel->setText(fpsCnt+" "+val);
-//    else
-//        infoLabel->setText(fpsCnt+"\n"+val);
+
+    m_dataString=QString("val: %1").arg(indata);
+    infoLabel->setText(m_fpsString+" "+m_dataString);
+    //    if(m_bIsDisplay)
+    //        infoLabel->setText(fpsCnt+" "+val);
+    //    else
+    //        infoLabel->setText(fpsCnt+"\n"+val);
     curFrequency++;
     if(curFrequency>=frequency)
     {

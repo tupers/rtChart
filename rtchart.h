@@ -11,8 +11,10 @@
 #include <QtCharts>
 #include <QList>
 #include <QStackedLayout>
-#include <QElapsedTimer>
 #include <QDebug>
+#include <QThread>
+
+#include "fpscnt.h"
 
 #define DISPLAY_NUM         100
 #define STORED_NUM          500
@@ -23,6 +25,7 @@ class RTChart : public QWidget
     Q_OBJECT
 public:
     explicit RTChart(QString name,QWidget *parent = 0);
+    ~RTChart();
     void setFrequency(int fq){frequency=fq>1?fq:1;}
     void updateDisplayData();
     void setDataRange(qreal min,qreal max);
@@ -30,7 +33,7 @@ public:
     bool isDisplay(){return m_bIsDisplay;}
 
 signals:
-
+    void updateFps();
 public slots:
     void updateData(float indata);
     void displayCtrl();
@@ -53,7 +56,6 @@ private:
     QChartView* chartView=NULL;
     QVector<float> data;
     QVector<QPointF> dataPoint;
-    QElapsedTimer m_fpsTimer;
     qint64 m_lLastTime=0;
     int frequency=DEFAULT_FREQUENCY;
     int curFrequency=0;
@@ -61,6 +63,10 @@ private:
     int displayNum=DISPLAY_NUM;
     int storedNum=STORED_NUM;
     QString m_ChartName;
+    QString m_fpsString;
+    QString m_dataString;
+    fpsCnt* m_fpsCnt;
+    QThread* m_fpsThread;
 };
 
 #endif // RTCHART_H
