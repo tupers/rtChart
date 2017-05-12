@@ -3,11 +3,25 @@
 /**
  * @brief RTChart::RTChart
  * @param name
+ * @param num
  * @param parent
  */
-RTChart::RTChart(QString name,QWidget *parent) : QWidget(parent)
+RTChart::RTChart(QString name,int num,QWidget *parent) : QWidget(parent)
 {
     m_ChartName=name;
+
+    //init data
+    m_sourceList.reserve(num);
+    for(int i=0;i<num;i++)
+    {
+        QVector<float> data;
+        data.reserve(storedNum);
+        QVector<QPointF> display;
+        for(int j=0;j<displayNum;j++)
+            display.append(QPointF(j,0));
+        m_sourceList.append({data,display,0,NULL,"fps: 0","val: 0"});
+    }
+
     //init ui
     mainLayout = new QVBoxLayout(this);
 
@@ -32,21 +46,6 @@ RTChart::RTChart(QString name,QWidget *parent) : QWidget(parent)
     m_hCtrlLayout->addSpacerItem(new QSpacerItem(1,1,QSizePolicy::Expanding));
     m_hSubLayout->addLayout(m_hCtrlLayout);
 
-    //    saveButton = createButton("save");
-    //    connect(saveButton,&QPushButton::clicked,this,&RTChart::saveData);
-    //    m_hCtrlLayout->addWidget(saveButton);
-    //    m_hCtrlLayout->setAlignment(saveButton,Qt::AlignRight);
-
-    //    m_hZoomInButton = createButton("x0.5");
-    //    connect(m_hZoomInButton,&QPushButton::clicked,[=](){if(displayNum<16)return;displayNum/=2;chartView->chart()->axisX()->setRange(0,displayNum);});
-    //    m_hCtrlLayout->addWidget(m_hZoomInButton);
-    //    m_hCtrlLayout->setAlignment(m_hZoomInButton,Qt::AlignRight);
-
-    //    m_hZoomOutButton = createButton("x2");
-    //    connect(m_hZoomOutButton,&QPushButton::clicked,[=](){if(displayNum>(storedNum/2))return;displayNum*=2;chartView->chart()->axisX()->setRange(0,displayNum);});
-    //    m_hCtrlLayout->addWidget(m_hZoomOutButton);
-    //    m_hCtrlLayout->setAlignment(m_hZoomOutButton,Qt::AlignRight);
-
     m_hPauseButton = createButton("pause");
     connect(m_hPauseButton,&QPushButton::clicked,[=](){ if(m_hPauseButton->text()=="pause")
             m_hPauseButton->setText("continue");
@@ -61,55 +60,57 @@ RTChart::RTChart(QString name,QWidget *parent) : QWidget(parent)
     m_hCtrlLayout->addWidget(displayButton);
     m_hCtrlLayout->setAlignment(displayButton,Qt::AlignRight);
 
+    for(int i=0;i<num;i++)
+    {
+        QLineSeries* series = (QLineSeries*)chartView->chart()->series()[i];
+        m_sourceList[i].info = createLabel("no data");
+        m_sourceList[i].info->setMinimumWidth(130);
+        m_sourceList[i].info->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+        m_sourceList[i].info->setStyleSheet(QString("color:rgb(%1,%2,%3)").arg(series->color().red()).arg(series->color().green()).arg(series->color().blue()));
+        m_hSubLayout->addWidget(m_sourceList[i].info);
+        m_hSubLayout->setAlignment(m_sourceList[i].info,Qt::AlignRight|Qt::AlignTop);
+    }
 
-
-
-    infoLabel = createLabel("no data");
-    infoLabel->setMinimumWidth(130);
-    infoLabel->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
-    m_hSubLayout->addWidget(infoLabel);
-    m_hSubLayout->setAlignment(infoLabel,Qt::AlignRight|Qt::AlignTop);
-
-    //init data
-    data.reserve(storedNum);
-    dataPoint.reserve(displayNum);
-    for(int i =0;i<displayNum;i++)
-        dataPoint.append(QPointF(i,0));
-
+    m_hSubSpacer = new QSpacerItem(1,1,QSizePolicy::Preferred,QSizePolicy::Expanding);
+    m_hSubLayout->addSpacerItem(m_hSubSpacer);
 
     //init fps counting
-    m_fpsString="fps: 0";
-    m_dataString="val: 0";
 
     m_fpsThread = new QThread();
-    m_fpsCnt = new fpsCnt();
+    m_fpsCnt = new fpsCnt(num);
     m_fpsCnt->moveToThread(m_fpsThread);
     connect(this,&RTChart::updateFps,m_fpsCnt,&fpsCnt::counting);
-    connect(m_fpsCnt,&fpsCnt::fpsResult,this,[=](qreal fps){m_fpsString=QString("fps: %1").arg(fps);});
+    connect(m_fpsCnt,&fpsCnt::fpsResult,this,[=](int index,qreal fps){m_sourceList[index].fpsString=QString("fps: %1").arg(fps);});
     m_fpsThread->start();
 }
 
 RTChart::~RTChart()
 {
+    if(m_hSubSpacer!=NULL&&!m_bIsDisplay)
+    {
+        delete m_hSubSpacer;
+        m_hSubSpacer=NULL;
+    }
     m_fpsThread->deleteLater();
     m_fpsCnt->deleteLater();
 }
 
 /**
  * @brief RTChart::updateDisplayData
+ * @param index
  */
-void RTChart::updateDisplayData()
+void RTChart::updateDisplayData(int index)
 {
-    int dataCount = data.count();
+    int dataCount = m_sourceList.at(index).data.count();
     if(dataCount<displayNum)
-        for(int i = 0;i<dataCount;i++)
-            dataPoint[displayNum-dataCount+i]=QPointF(displayNum-dataCount+i,data.at(i));
+        for(int j = 0;j<dataCount;j++)
+            m_sourceList[index].display[displayNum-dataCount+j]=QPointF(displayNum-dataCount+j,m_sourceList.at(index).data.at(j));
     else
-        for(int i=0;i<displayNum;i++)
-            dataPoint[i]=QPointF(i,data.at(dataCount-displayNum+i));
-    QLineSeries* series = (QLineSeries*)chartView->chart()->series()[0];
+        for(int j=0;j<displayNum;j++)
+            m_sourceList[index].display[j]=QPointF(j,m_sourceList.at(index).data.at(dataCount-displayNum+j));
+    QLineSeries* series = (QLineSeries*)chartView->chart()->series()[index];
     if(m_bIsDisplay)
-        series->replace(dataPoint);
+        series->replace(m_sourceList.at(index).display);
 }
 
 /**
@@ -118,10 +119,13 @@ void RTChart::updateDisplayData()
  */
 QChartView* RTChart::createChart()
 {
-    QLineSeries* series = new QLineSeries();
-    series->setUseOpenGL(true);
     QChart* chart = new QChart();
-    chart->addSeries(series);
+    for(int i=0;i<m_sourceList.count();i++)
+    {
+        QLineSeries* series = new QLineSeries();
+        series->setUseOpenGL(true);
+        chart->addSeries(series);
+    }
     chart->createDefaultAxes();
     chart->legend()->hide();
     chart->setAnimationOptions(QChart::NoAnimation);
@@ -175,29 +179,38 @@ void RTChart::setDataRange(qreal min, qreal max)
     chart->axisY()->setRange(min,max);
 }
 
+void RTChart::clear()
+{
+    for(int i=0;i<m_sourceList.count();i++)
+    {
+        QLineSeries* series = (QLineSeries*)chartView->chart()->series()[i];
+        series->clear();
+    }
+}
+
 /**
  * @brief RTChart::updateData
  * @param indata
+ * @param index
  */
-void RTChart::updateData(float indata)
+void RTChart::updateData(float indata, int index)
 {
-    emit updateFps();
+    if(index>m_sourceList.count()-1)
+        return;
+    emit updateFps(index);
 
-    if(data.count()>=storedNum)
-        data.removeFirst();
-    data.append(indata);
+    if(m_sourceList[index].data.count()>=storedNum)
+        m_sourceList[index].data.removeFirst();
+    m_sourceList[index].data.append(indata);
 
-    m_dataString=QString("val: %1").arg(indata);
-    infoLabel->setText(m_fpsString+" "+m_dataString);
-    //    if(m_bIsDisplay)
-    //        infoLabel->setText(fpsCnt+" "+val);
-    //    else
-    //        infoLabel->setText(fpsCnt+"\n"+val);
-    curFrequency++;
-    if(curFrequency>=frequency)
+    m_sourceList[index].dataString=QString("val: %1").arg(indata);
+    m_sourceList[index].info->setText(m_sourceList[index].fpsString+" "+m_sourceList[index].dataString);
+
+    m_sourceList[index].curFrequency++;
+    if(m_sourceList[index].curFrequency>=frequency)
     {
-        updateDisplayData();
-        curFrequency=0;
+        updateDisplayData(index);
+        m_sourceList[index].curFrequency=0;
     }
 }
 
@@ -208,22 +221,29 @@ void RTChart::displayCtrl()
 {
     if(isDisplay())
     {
-        QLineSeries* series = (QLineSeries*)chartView->chart()->series()[0];
-        series->clear();
-        m_hSubLayout->setAlignment(infoLabel,Qt::AlignHCenter|Qt::AlignVCenter);
-        QFont font = infoLabel->font();
-        font.setPointSize(15);
-        infoLabel->setFont(font);
+        for(int i=0;i<m_sourceList.count();i++)
+        {
+            QLineSeries* series = (QLineSeries*)chartView->chart()->series()[i];
+            series->clear();
+            m_hSubLayout->setAlignment(m_sourceList[i].info,Qt::AlignHCenter|Qt::AlignVCenter);
+            QFont font = m_sourceList[i].info->font();
+            font.setPointSize(15);
+            m_sourceList[i].info->setFont(font);
+        }
         chartView->setVisible(false);
+        m_hSubLayout->removeItem(m_hSubSpacer);
     }
     else
     {
-        m_hSubLayout->setAlignment(infoLabel,Qt::AlignRight|Qt::AlignTop);
-        QFont font = infoLabel->font();
-        font.setPointSize(9);
-        infoLabel->setFont(font);
+        for(int i=0;i<m_sourceList.count();i++)
+        {
+            m_hSubLayout->setAlignment(m_sourceList[i].info,Qt::AlignRight|Qt::AlignTop);
+            QFont font = m_sourceList[i].info->font();
+            font.setPointSize(9);
+            m_sourceList[i].info->setFont(font);
+        }
         chartView->setVisible(true);
+        m_hSubLayout->addSpacerItem(m_hSubSpacer);
     }
-
     setDisplay(!isDisplay());
 }

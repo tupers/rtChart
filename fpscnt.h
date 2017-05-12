@@ -2,23 +2,29 @@
 #define FPSCNT_H
 
 #include <QObject>
+#include <QVector>
 #include <QElapsedTimer>
+
+typedef struct
+{
+    QElapsedTimer timer;
+    bool isStart;
+    int cnt;
+    qreal fps;
+}timerHandle;
 
 class fpsCnt : public QObject
 {
     Q_OBJECT
 public:
-    explicit fpsCnt(QObject *parent = 0);
+    explicit fpsCnt(int num=1,QObject *parent = 0);
 
 signals:
-    void fpsResult(qreal fps);
+    void fpsResult(int index,qreal fps);
 public slots:
-    void counting();
+    void counting(int index);
 private:
-    QElapsedTimer m_fpsTimer;
-    bool m_bIsStart=false;
-    int m_nCount=0;
-    qreal m_fps;
+    QVector<timerHandle> m_timerList;
 };
 
 #endif // FPSCNT_H
